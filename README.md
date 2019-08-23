@@ -20,8 +20,6 @@ A tutorial to get acquainted with the library is available below. In this repo 4
 
 - A script that generates training and testing data (e.g. `\examples\wave_oned\wave1D_generate_tests.ini`) and stores them into the `datapath` folder.
 
-- A main script, which generates the problem, the high-fidelity model, generates train and test datasets, performs model reduction and evaluates the results (e.g `\examples\transmission_line_circuit\NTL1_main.m`).
-
 - One or more configuration files to train a reduced model, with the format `opt_*.ini` (e.g. `\examples\wave_oned\opt_wave1D.ini`). To use them, execute the command `model_learn('opt_wave1D.ini')`.
 
 - One or more scripts to analyze and postprocess the results obtained with the trained models and the HF model.
