@@ -1,0 +1,7 @@
+This example is based on the library 'feamat', publicly available at:
+
+https://github.com/lucapegolotti/feamat
+
+Before running the scripts contained in this folder, clone the repository 
+on your machine and run the addpaths.m functions contained in the feamat 
+repository.

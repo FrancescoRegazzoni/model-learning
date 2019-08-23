@@ -1,0 +1,9 @@
+Two steps usage:
+1. "EvaluateANN.m": evaluates the ANN on a given input adn returns output, alpha and beta.
+2. Computation of sensitivities: 
+    - "ANNSensitivityBP.m": computes by Backward Propagation the derivatives wrt input, w and theta.
+    - "ANNSensitivityBPext.m": computes by Backward Propagation the derivatives wrt input, w and theta and the mixed derivatives input-w and input-theta (NB: to fix)
+    - "ANNSensitivityFP.m": computes by Forward Propagation the derivatives wrt input, w and theta and the mixed derivatives input-w and input-theta
+
+Single step usage:
+"ANNeval.m" incorporates all the above functions. It allows to compute output, alpha, beta and all the derivatives. It allows to choose between Froward and Backward propagation. It can be used by passing alpha and beta or by recomputing them. NB: less efficient than the above functions.

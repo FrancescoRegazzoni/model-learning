@@ -1,3 +1,205 @@
-# model-learning #
+# Model Learning #
 
-The paper *Machine Learning for fast and reliable solution of time-dependent differential equations* is currently under review for publication. All the results shown in the paper are produced with the `Matlab` library `model-learning`, which will be publicly available in this repository when the revision porcess will be completed. 
+Matlab (R) library for model learning and model reduction. The main methods and algorithms implemented in the library have been introduced in the paper [1], wherein they are derived and documented.
+
+# How do I get set up?
+
+- In the main library folder copy the file `options_example.ini` into `options.ini` (not git tracked) and customize the field `datapath` (path where generated data will be stored). By default, data are stored in the library folder.
+- Run `addpaths.m`.
+- Enjoy.
+
+A collection of pre-trained ANNs is available in the repo [model-learning_data](https://github.com/FrancescoRegazzoni/model-learning_data). To use them, clone/download the repo and make the `datapath` field point to the path of the repo (or alternatively copy the content of the repo into the `datapath` folder).
+
+# How do I use the library?
+
+A tutorial to get acquainted with the library is available below. In this repo 4 examples of usage of the library are also available. The examples are documented and described in [1]. The examples of usage are contained into the folder `\examples` (e.g. `\examples\wave_oned`). The standard structure for an example envisages:
+
+- The *problem* specifications, through an `.ini` file (e.g. `\examples\wave_oned\wave1D.ini`).
+
+- The *high-fidelity model* definition, through a `.m` file (e.g. `\examples\wave_oned\wave1D_getmodel.ini`).
+
+- A script that generates training and testing data (e.g. `\examples\wave_oned\wave1D_generate_tests.ini`) and stores them into the `datapath` folder.
+
+- A main script, which generates the problem, the high-fidelity model, generates train and test datasets, performs model reduction and evaluates the results (e.g `\examples\transmission_line_circuit\NTL1_main.m`).
+
+- One or more configuration files to train a reduced model, with the format `opt_*.ini` (e.g. `\examples\wave_oned\opt_wave1D.ini`). To use them, execute the command `model_learn('opt_wave1D.ini')`.
+
+- One or more scripts to analyze and postprocess the results obtained with the trained models and the HF model.
+
+To create a new example, create a new folder in the folder `\examples`. 
+
+# Notes about the conventions
+
+## Function arguments
+
+Functions typically accept a list of mandatory arguments, briefly documented in the function help. Optional arguments are typically passed by a structure array `opt`. In the first lines of the function, default values are typically assigned to undefined optional arguments. These lines thus provide a list of the possible optional arguments.
+
+## Variable names
+
+In the code the names of the variables concerning the models refelct the convention used in [1]. Specifically, models are denoted as follows:
+
+`dx/dt = f(x(t),u(t))`
+
+`y(t) = g(x(t))`
+
+where `t` is time, `x(t)` is the internal state, `u(t)` (if present) is the time-dependent input, `y(t)` is the time-dependent output.
+
+# Tutorial
+
+Position the Matlab current directory into the folder `\examples\tutorial`. Consider the nonlinear transmission line circuit example of Sec. 4.2 of [1]. The learning pipeline consists in the steps listed below. This tutorial allows to follow the pipeline step by step, but the full list of commands are collected in the unique file `\examples\tutorial\NTL1_tutorial.m`.
+
+## 1. Definig the problem
+
+A *problem* mainly consists in the definition of the input-output variables (how many they are, which are the bounds for each variable). Notice that a problem does not contain any information about the map linking inputs to outputs: such map is rather defined my a *model*, which is a different concept, trated in the next section. Indeed, for a given problem (in this case, the problem is linking the input current of the circuit to the output voltage) one may have several models.
+
+Problems are defined through *.ini* files. The full list of tags to define a problem is available in `\examples\problem_example.ini`.
+
+The problem of the current example is defined in `\examples\tutorial\NTL1.ini`. A problem may contain a handle to generate the high-fidelity model associated to the problem, as we will see in the next section..
+
+## 2. Definig the high-fidelity model
+
+A *model* can be regarded as a map from a time-dependent input to a time-dependent output, according to the definition of Sec. 2.1 of [1]. Each model is associated to a problem. Notice that a model comprises both the mathematical model and its discretization: it corresponds thus to the concept of *numerical model*.
+
+Models are represented by structs. The struct always contains a field *problem*, containing the associated problem struct.
+
+Structs are typically generated by ad-hoc functions, for better versatility. In this example, the high-fidelity model is generated by the function `\examples\tutorial\NTL1_getmodel.m`.  The model struct should contain the following fields:
+
+**Basic fields**
+
+- `nX`: number of internal states
+
+- `x0`: initial state
+
+- `dt`: integration time step
+
+**Model dynamics**
+
+The model dynamics can be defined in different ways (field `advance_type`), depending on the features of the model (linear, nonlinear, ecc.). In this example, the model is defined through its right-hand side and it is solved by Explicit Euler scheme (`advance_type = 'nonlinear_explicit'`). The right-hand side is defined in the field `f`, which implements Eq. (32) of [1].
+
+**Model output**
+
+Also the output of the model can be defined in different ways (field `output_type`). In this case, it is of type `'insidestate'`, which means that the output is given by the first `nY` internal states.
+
+Once the problem and the model have been defined, we can load them with the following commands:
+
+```matlab
+problem = problem_get('tutorial','NTL1.ini');
+HFmod = problem.get_model(problem);
+```
+
+To employ the model to perform simulations, first define a test:
+```matlab
+test_solve.tt = [0 10];
+test_solve.uu = @(t) .5*(1+cos(2*pi*t/10));
+```
+
+Then, solve the model as follows:
+```matlab
+figure();
+output = model_solve(test_solve,HFmod,struct('do_plot',1));
+```
+
+The output struct contains the output of the simulation.
+
+## 3. Generating training datasets
+
+With the following lines, we use the high-fidelity model `HFmod` to generate two training datasets. With the option `do_save = 1` the datasets are stored into an automatically generated path inside the data folder defined in `options.ini`, according the example name and problem name.
+
+```matlab
+rng('default') % for reproducibility
+
+optGen.do_plot = 1;
+optGen.do_save = 1;
+optGen.optRandomU.time_scale = .02; 
+
+optGen.outFile = 'samples_rnd.mat';
+dataset_generate_random(HFmod,100,optGen);
+
+optGen.constant = 1;
+optGen.wait_init = 1;
+optGen.wait_init_time_wait = .2;
+optGen.wait_init_time_raise = 0;
+optGen.outFile = 'samples_step.mat';
+dataset_generate_random(HFmod,50,optGen);
+```
+
+The first dataset contains 100 samples associated to random inputs. The second one contains 50 random samples associated to step inputs.
+
+It is possible to extract subsets from datasets and combine them. With the following code, for instance, we create a dataset by combining the first three samples of the step responses generated before with the first 8 random responses.
+
+```matlab
+dataset_def.problem = problem;
+dataset_def.type = 'file';
+dataset_def.source = 'samples_step.mat;1:3|samples_rnd.mat;1:8';
+train_dataset = dataset_get(dataset_def);
+```
+
+To plot the dataset, type:
+
+```matlab
+dataset_plot(train_dataset,problem)
+```
+
+## 4. Training the ANN
+
+Training specifications are defined into an option file. The full list of available options, with relative documentation, can be found in `\mor_ANN_blackbox\opt_example.ini`.
+
+The option file for the current example is contained into `\examples\tutorial\NTL1_opt.ini`. We now comment the main fields:
+
+- `Problem\dataset_source_train` and `Problem\dataset_source_tests` contain the specifications for the training and the test datasets, with the same sitax used before
+
+- `Model\N`: number of states in the learned model
+
+- `ANN\layF`: number of neurons in the hidden layers of the ANN
+
+To train the network, run the following command, which will stop afer 100 training epochs:
+```matlab
+model_learn('NTL1_opt.ini')
+```
+
+The trained model is stored in an automatically generated path. A name is automatically assigned to the trained model: it appears at the beginning of training but it is also copied to the clipboard just after it appears in the MATLAB console. Paste it somewhere to be able to load the trained model later. The name is generated according to the main settings of learning plus a time stamp (e.g. 'test_int_N2_hlayF5_dof32_2019-02-28_11-07-14')
+
+## 5. Using the trained model
+
+To load the learned model, run (after replacing the learned model name with the one you stored before):
+```matlab
+ANNmod = read_model_fromfile(problem,'test_int_N2_hlayF5_dof32_2019-02-28_11-07-14');
+```
+
+The struct `ANNmod` is a model struct, as much as `HFmod`: it can indeed be employed as the high-fidelity model:
+```matlab
+figure();
+output = model_solve(test_solve,ANNmod,struct('do_plot',1));
+```
+
+Moreover, being a spacial type of model (a model whose right-hand side is defined by an ANN), it has additional features. For instance, the ANN can be visualized, by running `ANNmod.visualize()`.
+
+To evaluate the level of approximation of the learned model, first generate a test dataset:
+```matlab
+dataset_def.problem = problem;
+dataset_def.type = 'file';
+dataset_def.source = 'samples_step.mat;11:50|samples_rnd.mat;21:100';
+test_dataset = dataset_get(dataset_def);
+```
+
+Then, evaluate the error with the high-fidelity model (it must be zero):
+```matlab
+model_compute_error(HFmod, test_dataset);
+```
+and with the learned model:
+```matlab
+model_compute_error(ANNmod, test_dataset);
+```
+
+# References
+
+[1] F. Regazzoni, L. Dede', A. Quarteroni [Machine learning for fast and reliable solution of time-dependent differential equations](https://doi.org/10.1016/j.jcp.2019.07.050), *Journal of Computational Physics* (2019).
+
+# Author
+
+Francesco Regazzoni, MOX - Politecnico di Milano (<francesco.regazzoni@polimi.it>)
+
+# Ackowledgements
+
+- Luca Dede', for having provided the code of the `lbfgs.m` optimization function.
+- Primoz Cermelj, for the `inifile.m` utility.
