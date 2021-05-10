@@ -7,8 +7,12 @@ function names = problem_getvariablename_list(problem,type)
         case {'u','y'}
             if isequal(type,'u'), nvar = problem.nU; end
             if isequal(type,'y'), nvar = problem.nY; end
-            for i = 1:nvar
-                names{i} = problem_getvariablename(problem,type,i);
+            if nvar == 0
+                names = [];
+            else
+                for i = 1:nvar
+                    names{i} = problem_getvariablename(problem,type,i);
+                end
             end
         case 'a'
             names = [ problem_getvariablename_list(problem,'u'), ...

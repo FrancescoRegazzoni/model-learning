@@ -21,6 +21,15 @@ function [y,x] = model_get_steady_state(model,u_steady,opt)
         opt.x0 = [];
     end
     
+    %% black-box    
+    if ~isfield(model,'blackbox')
+        model.blackbox = 0;
+    end   
+    if model.blackbox
+        [y,x] = model.get_steady_state(u_steady);
+        return
+    end
+    
     %% initialization
     if isempty(opt.x0)
         x = model.x0;
@@ -57,7 +66,7 @@ function [y,x] = model_get_steady_state(model,u_steady,opt)
 				x = model.solveonestep(x,u_steady,dt);                                          
                 y = g(x);
                 % increments
-                incr_x = norm(x-x_old)/norm(x);
+                incr_x = norm(x-x_old)/max(1e-10, norm(x));
                 incr_y = norm((y-y_old)./y_norm);
                 if incr_x/dt < opt.eps_x && incr_y/dt < opt.eps_y
                     steady_state = 1;
@@ -73,7 +82,7 @@ function [y,x] = model_get_steady_state(model,u_steady,opt)
 				x = K \ rhs;                                                                            
                 y = g(x);
                 % increments
-                incr_x = norm(x-x_old)/norm(x);
+                incr_x = norm(x-x_old)/max(1e-10, norm(x));
                 incr_y = norm((y-y_old)./y_norm);
                 if incr_x/dt < opt.eps_x && incr_y/dt < opt.eps_y
                     steady_state = 1;
@@ -88,7 +97,7 @@ function [y,x] = model_get_steady_state(model,u_steady,opt)
 				x = x + dt * model.f(x,u_steady);                                               
                 y = g(x);
                 % increments
-                incr_x = norm(x-x_old)/norm(x);
+                incr_x = norm(x-x_old)/max(1e-10, norm(x));
                 incr_y = norm((y-y_old)./y_norm);
                 if incr_x/dt < opt.eps_x && incr_y/dt < opt.eps_y
                     steady_state = 1;
@@ -107,7 +116,7 @@ function [y,x] = model_get_steady_state(model,u_steady,opt)
 				end                                                                                      
                 y = g(x);
                 % increments
-                incr_x = norm(x-x_old)/norm(x);
+                incr_x = norm(x-x_old)/max(1e-10, norm(x));
                 incr_y = norm((y-y_old)./y_norm);
                 if incr_x/dt < opt.eps_x && incr_y/dt < opt.eps_y
                     steady_state = 1;
@@ -128,7 +137,7 @@ function [y,x] = model_get_steady_state(model,u_steady,opt)
 			   x = (eye(nX)/dt - .5*model.A) \ ((eye(nX)/dt + .5*model.A)*x + b);            
                 y = g(x);
                 % increments
-                incr_x = norm(x-x_old)/norm(x);
+                incr_x = norm(x-x_old)/max(1e-10, norm(x));
                 incr_y = norm((y-y_old)./y_norm);
                 if incr_x/dt < opt.eps_x && incr_y/dt < opt.eps_y
                     steady_state = 1;
@@ -144,7 +153,7 @@ function [y,x] = model_get_steady_state(model,u_steady,opt)
 				x = K \ (B*x + b);                                                                      
                 y = g(x);
                 % increments
-                incr_x = norm(x-x_old)/norm(x);
+                incr_x = norm(x-x_old)/max(1e-10, norm(x));
                 incr_y = norm((y-y_old)./y_norm);
                 if incr_x/dt < opt.eps_x && incr_y/dt < opt.eps_y
                     steady_state = 1;
@@ -160,7 +169,7 @@ function [y,x] = model_get_steady_state(model,u_steady,opt)
 				x = (Kf + Kv/dt) \ ((Bf + Bv/dt)*x + b);                                      
                 y = g(x);
                 % increments
-                incr_x = norm(x-x_old)/norm(x);
+                incr_x = norm(x-x_old)/max(1e-10, norm(x));
                 incr_y = norm((y-y_old)./y_norm);
                 if incr_x/dt < opt.eps_x && incr_y/dt < opt.eps_y
                     steady_state = 1;
@@ -185,7 +194,7 @@ function [y,x] = model_get_steady_state(model,u_steady,opt)
 				x = K \ (B*x + b);                                                                      
                 y = g(x);
                 % increments
-                incr_x = norm(x-x_old)/norm(x);
+                incr_x = norm(x-x_old)/max(1e-10, norm(x));
                 incr_y = norm((y-y_old)./y_norm);
                 if incr_x/dt < opt.eps_x && incr_y/dt < opt.eps_y
                     steady_state = 1;
@@ -218,7 +227,7 @@ function [y,x] = model_get_steady_state(model,u_steady,opt)
 				x = (Kf + Kv/dt) \ ((Bf + Bv/dt)*x + b); 
                 y = g(x);
                 % increments
-                incr_x = norm(x-x_old)/norm(x);
+                incr_x = norm(x-x_old)/max(1e-10, norm(x));
                 incr_y = norm((y-y_old)./y_norm);
                 if incr_x/dt < opt.eps_x && incr_y/dt < opt.eps_y
                     steady_state = 1;

@@ -14,7 +14,11 @@ function model_check_derivatives(mod)
             mod_part = metamodel_particularize(mod);
             x = mod_part.x0;
             a = mod_part.alpha;
-            u = [];
+            if mod.problem.nU == 0
+                u = [];
+            else
+                u = mod.problem.u_min + (mod.problem.u_max-mod.problem.u_min)*rand(1);
+            end
             f_0 = mod.f_alpha(x,u,a);
             if check_dfdx
                 dfdx_ana = mod.dfdx(x,u,a);

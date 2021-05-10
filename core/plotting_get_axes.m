@@ -31,6 +31,9 @@ function out = plotting_get_axes(num_rows,num_cols,opt)
     if ~isfield(opt,'plot_legend')
         opt.plot_legend = 0;
     end
+    if ~isfield(opt,'legend_orientation')
+        opt.legend_orientation = 'h';
+    end
     if ~isfield(opt,'legend_width')
         opt.legend_width = 150;
     end
@@ -49,16 +52,27 @@ function out = plotting_get_axes(num_rows,num_cols,opt)
               + num_rows*opt.subplot_heigth ...
               + (num_rows-1)*opt.margin_plot_v;
     if opt.plot_legend
-        out.heigth = out.heigth + opt.legend_heigth + opt.legend_margin;
+        if opt.legend_orientation == 'h'
+            out.heigth = out.heigth + opt.legend_heigth + opt.legend_margin;
+        else
+            out.width = out.width + opt.legend_width + opt.legend_margin;
+        end
     end
     out.normalization = [out.width out.heigth out.width out.heigth];
     if opt.plot_legend
-        out.legend_coord = [(out.width - opt.legend_width)/2, ...
-                            opt.legend_margin, ...
-                            opt.legend_width, ...
-                            opt.legend_heigth];
+        if opt.legend_orientation == 'h'
+            out.legend_coord = [(out.width - opt.legend_width)/2, ...
+                                opt.legend_margin, ...
+                                opt.legend_width, ...
+                                opt.legend_heigth];
+        else
+            out.legend_coord = [out.width - opt.legend_width - opt.legend_margin, ...
+                                (out.heigth - opt.legend_heigth)/2, ...
+                                opt.legend_width, ...
+                                opt.legend_heigth];
+            
+        end
         out.legend_coord_norm = out.legend_coord ./ out.normalization;
-        
         out.get_legend_coord = @get_legend_coord;
         out.get_legend_coord_norm = @get_legend_coord_norm;
     end
@@ -86,10 +100,18 @@ function out = plotting_get_axes(num_rows,num_cols,opt)
     
     function new_coord = get_legend_coord(coord)
         coord = coord .* out.normalization;
-        new_coord = [(out.width - coord(3))/2, ...
+        if opt.legend_orientation == 'h'
+            new_coord = [(out.width - coord(3))/2, ...
                      opt.legend_margin, ...
                      coord(3), ...
                      opt.legend_heigth]; 
+        else
+            new_coord = [out.width - opt.legend_width - opt.legend_margin, ...
+                     (out.heigth - coord(4))/2, ...
+                     opt.legend_width, ...
+                     coord(4)];            
+        end
+        
     end
 
     function new_coord = get_legend_coord_norm(coord)

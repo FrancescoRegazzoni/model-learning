@@ -1,0 +1,80 @@
+problem               | dir                                          | noise | type | comment
+
+%%%%%%%%%%%%%%%%%%%%
+% free optimization   |                                              |       |      |
+testcase_1var_linear  | test_int_N1_hlayF3_dof13_2019-01-23_19-09-44 | 1e-2  | 0    |
+testcase_1var_linear  | test_int_N1_hlayF3_dof13_2019-01-23_19-07-11 | 1e-3  | 0    |
+testcase_1var_linear  | test_int_N1_hlayF3_dof13_2019-01-23_19-23-20 | 0     | 0    |
+testcase_1var_linear  | test_int_N1_hlayF3_dof13_2019-02-20_10-01-11 | 0     | 0    |                                               RUNNING
+%
+% alpha constrained   |                                              |       |      |
+testcase_1var_linear  | test_int_N1_hlayF3_dof12_2019-01-23_17-04-53 | 1e-2  | 1    |
+testcase_1var_linear  | test_int_N1_hlayF3_dof12_2019-01-23_17-53-33 | 1e-3  | 1    |
+testcase_1var_linear  | test_int_N1_hlayF3_dof12_2019-01-23_14-25-47 | 0     | 1    |
+%
+% alpha penalized     |                                              |       |      |
+testcase_1var_linear  | test_int_N1_hlayF3_dof13_2019-01-24_11-34-57 | 1e-2  | 2    | smart init
+testcase_1var_linear  | test_int_N1_hlayF3_dof13_2019-01-24_11-35-41 | 1e-3  | 2    | smart init
+testcase_1var_linear  | test_int_N1_hlayF3_dof13_2019-01-23_14-44-32 | 0     | 2    |
+%
+% pen alpha  + df/da  |                                              |       |      |
+testcase_1var_linear  | test_int_N1_hlayF3_dof13_2019-01-25_10-34-26 | 1e-2  | 3    | penal 1e-2
+testcase_1var_linear  | test_int_N1_hlayF3_dof13_2019-01-25_10-37-59 | 1e-3  | 3    | penal 1e-2
+testcase_1var_linear  | test_int_N1_hlayF3_dof13_2019-01-25_11-24-14 | 1e-3  | 3    | penal 1e-4
+testcase_1var_linear  | test_int_N1_hlayF3_dof13_2019-01-25_10-38-33 | 0     | 3    | penal 1e-2
+testcase_1var_linear  | test_int_N1_hlayF3_dof13_2019-01-25_11-25-20 | 0     | 3    | penal 1e-6
+
+%%%%%%%%%%%%%%%%%%%%
+% alpha free          |                                              |       |      |
+testcase_1var_exp     | test_int_N1_hlayF3_dof13_2019-02-13_11-31-02 | 1e-1  | 0    | 
+testcase_1var_exp     | test_int_N1_hlayF3_dof13_2019-01-24_09-44-25 | 1e-2  | 0    | 
+testcase_1var_exp     | test_int_N1_hlayF3_dof13_2019-01-24_09-45-11 | 1e-3  | 0    | 
+testcase_1var_exp     | test_int_N1_hlayF3_dof13_2019-01-28_10-29-25 | 0     | 0    | 
+testcase_1var_exp     | test_int_N1_hlayF3_dof13_2019-02-19_18-38-29 | 0     | 0    |    
+%
+% alpha constr        |                                              |       |      | 
+%testcase_1var_exp     | test_int_N1_hlayF3_dof12_2019-01-24_09-29-24 | 1e-2  | 1    | 
+%testcase_1var_exp     | test_int_N1_hlayF3_dof12_2019-01-24_09-28-43 | 1e-3  | 1    | 
+testcase_1var_exp     | test_int_N1_hlayF3_dof12_2019-02-13_09-17-13 | 1e-1  | 1    | smart init (NB init by a simulation with less noise)
+%testcase_1var_exp     | test_int_N1_hlayF3_dof12_2019-02-13_11-35-34 | 1e-1  | 1    | smart init 
+testcase_1var_exp     | test_int_N1_hlayF3_dof12_2019-01-24_13-42-09 | 1e-2  | 1    | smart init
+testcase_1var_exp     | test_int_N1_hlayF3_dof12_2019-01-24_13-43-17 | 1e-3  | 1    | smart init
+testcase_1var_exp     | test_int_N1_hlayF3_dof12_2019-02-13_09-11-20 | 1e-4  | 1    | smart init 
+testcase_1var_exp     | test_int_N1_hlayF3_dof12_2019-02-13_15-34-11 | 1e-5  | 1    | smart init                                            
+testcase_1var_exp     | test_int_N1_hlayF3_dof12_2019-02-13_16-42-55 | 1e-6  | 1    | smart init                                            
+%testcase_1var_exp     | test_int_N1_hlayF3_dof12_2019-02-12_17-00-26 | 1e-5  | 1    | smart init (non converged)
+%testcase_1var_exp     | test_int_N1_hlayF3_dof12_2019-02-12_17-02-45 | 1e-7  | 1    | smart init (non converged)
+%testcase_1var_exp     | test_int_N1_hlayF3_dof12_2019-02-12_17-04-41 | 1e-9  | 1    | smart init (non converged)
+testcase_1var_exp     | test_int_N1_hlayF3_dof12_2019-02-01_11-43-58 | 0     | 1    |            (non converged)
+%
+% alpha penal         |                                              |       |      | 
+testcase_1var_exp     | test_int_N1_hlayF3_dof13_2019-01-24_13-44-38 | 1e-2  | 2    | smart init
+testcase_1var_exp     | test_int_N1_hlayF3_dof13_2019-01-24_13-43-47 | 1e-3  | 2    | smart init 
+testcase_1var_exp     | test_int_N1_hlayF3_dof13_2019-02-20_10-04-23 | 0     | 2    | smart init (non converged)
+testcase_1var_exp     | test_int_N1_hlayF3_dof13_2019-02-20_18-54-43 | 0     | 2    | 
+%
+% pen alpha + dfda    |                                              |       |      | 
+testcase_1var_exp     | test_int_N1_hlayF3_dof13_2019-01-27_11-22-38 | 1e-2  | 3    | penal 1e-2
+testcase_1var_exp     | test_int_N1_hlayF3_dof13_2019-01-27_11-21-37 | 1e-3  | 3    | penal 1e-3
+testcase_1var_exp     | test_int_N1_hlayF3_dof13_2019-01-27_11-15-56 | 0     | 3    | penal 1e-6
+
+
+%%%%%%%%%%%%%%%%%%%%
+% alpha constr        |                                              |       |      |
+testcase_1var_expstab | test_int_N1_hlayF3_dof12_2019-01-23_22-47-47 | 1e-2  | 1    |
+testcase_1var_expstab | test_int_N1_hlayF3_dof12_2019-01-23_23-44-48 | 1e-3  | 1    |
+
+
+%%%%%%%%%%%%%%%%%%%%
+% alpha free          |                                              |       |      | 
+testcase_1var_bistab  | test_int_N1_hlayF3_dof13_2019-01-24_11-27-52 | 1e-2  | 0    | 
+testcase_1var_bistab  | test_int_N1_hlayF3_dof13_2019-01-24_11-29-11 | 1e-3  | 0    | 
+%
+% alpha constr        |                                              |       |      |
+testcase_1var_bistab  | test_int_N1_hlayF3_dof12_2019-01-24_11-30-01 | 1e-2  | 1    | smart init
+testcase_1var_bistab  | test_int_N1_hlayF3_dof12_2019-01-24_10-36-50 | 1e-3  | 1    | 
+
+
+%%%%%%%%%%%%%%%%%%%%
+
+testcase_2var_exp     | test_int_N2_hlayF4_dof26_2019-02-19_18-36-35 | 0     | 0    |  

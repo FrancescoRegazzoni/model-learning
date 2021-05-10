@@ -1,6 +1,10 @@
 options.ini
 data
+runlist.txt
+
 *.asv
 .DS_Store
 *.m~
-runlist.txt
+__pycache__
+*.pyc
+.vscode

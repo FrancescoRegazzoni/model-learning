@@ -5,37 +5,35 @@ function modelclass = modelclass_ANN(optionsfile,problem,N,N_alpha,useG,constrai
     % 1: f(x^*,u^*,a) = a
     % 2: f(x^*_1,u^*_1,a) = [I,0]a, f(x^*_2,u^*_2,a) = [0,I]a
     % 3: f(x_ref,u_ref) = 0
+    % 4: f(a_1,u^*_1,a) = 0, f(a_2,u^*_2,a) = 0
     
     
     if nargin == 5
         constrain_type = 0; 
     end
     
+    constrained_alpha = 0;
+    constrained_alpha_single = 0;
+    constrained_alpha_double = 0;
+    constrained_ref = 0;
+    constrained_steadystate = 0;
     switch constrain_type
         case 0 % free
             constrained = 0;
-            constrained_alpha = 0;
-            constrained_alpha_single = 0;
-            constrained_alpha_double = 0;
-            constrained_ref = 0;
         case 1 % f(x^*,u^*,a) = a
             constrained = 1;
             constrained_alpha = 1;
             constrained_alpha_single = 1;
-            constrained_alpha_double = 0;
-            constrained_ref = 0;
         case 2 % f(x^*_1,u^*_1,a) = [I,0]a, f(x^*_2,u^*_2,a) = [0,I]a
             constrained = 1;
             constrained_alpha = 1;
-            constrained_alpha_single = 0;
             constrained_alpha_double = 1;
-            constrained_ref = 0;
         case 3 % f(x_ref,u_ref) = 0
             constrained = 1;
-            constrained_alpha = 0;
-            constrained_alpha_single = 0;
-            constrained_alpha_double = 0;
             constrained_ref = 1;
+        case 4 % f(a_1,u^*_1,a) = 0, f(a_2,u^*_2,a) = 0
+            constrained = 1;
+            constrained_steadystate = 1;
     end
     
     layF                = iniread(optionsfile,'ANN','layF');
@@ -95,6 +93,9 @@ function modelclass = modelclass_ANN(optionsfile,problem,N,N_alpha,useG,constrai
         modelclass.set_xref = @set_xref;
         u_star = problem.u_ref;
     end
+    if constrained_steadystate
+        u_star          = iniread(optionsfile,'Penalizations','pen_alpha_eq_ustar','d','0');
+    end
     function set_xref(x_reference)
         x_star = x_reference;
     end
@@ -127,7 +128,18 @@ function modelclass = modelclass_ANN(optionsfile,problem,N,N_alpha,useG,constrai
     end
     if constrained_alpha_double
         if norm(x_star - x_star_2) + norm(u_star - u_star_2) < 1e-8
-            error('error: the two reference point are too close')
+            error('the two reference point are too close')
+        end
+    end
+    if constrained_steadystate
+        if N ~= 1 || N_alpha ~= 2 || problem.nU ~= 1
+            error('wrong dimensions for model class.')
+        end
+        if useG
+            error('constrained_steadystate incompatible with useG.')
+        end
+        if abs(u_star(1) - u_star(2)) < 1e-8
+            error('the two reference inputs are too close')
         end
     end
 
@@ -262,8 +274,7 @@ function modelclass = modelclass_ANN(optionsfile,problem,N,N_alpha,useG,constrai
     %% inizial normalization
     if constrained_alpha
         modelclass.apply_normalization = @apply_normalization_alpha_constrain;
-    end
-    
+    end    
     if constrained_alpha
         x_star_orig = x_star;
         u_star_orig = u_star;
@@ -305,6 +316,16 @@ function modelclass = modelclass_ANN(optionsfile,problem,N,N_alpha,useG,constrai
             u_star = renormalize_m1p1(u_star,nr.u_min,nr.u_max);
         end
         alpha_norm_ret = 0;
+    end
+
+    
+    if constrained_steadystate
+        modelclass.apply_normalization = @apply_normalization_steadystate;
+    end
+    function alpha_norm_ret = apply_normalization_steadystate(nr)
+        u_star = renormalize_m1p1(u_star,nr.u_min,nr.u_max);
+        alpha_norm_ret.min = ones(2,1) * nr.y_min;
+        alpha_norm_ret.max = ones(2,1) * nr.y_max;
     end
         
     
@@ -404,7 +425,7 @@ function modelclass = modelclass_ANN(optionsfile,problem,N,N_alpha,useG,constrai
     curr_alphaG = [];
     curr_betaG = [];   
     
-    if constrained >= 1
+    if constrained_alpha || constrained_ref
         curr_alphaF_base = [];
         curr_betaF_base = [];  
     end
@@ -417,6 +438,18 @@ function modelclass = modelclass_ANN(optionsfile,problem,N,N_alpha,useG,constrai
         Proj2 = [zeros(N) eye(N)];
         vec_times_lambda = [];
     end
+    if constrained_steadystate   
+        outputF_base_1 = [];
+        outputF_base_2 = [];
+        curr_alphaF_base_1 = [];
+        curr_betaF_base_1 = []; 
+        curr_alphaF_base_2 = [];
+        curr_betaF_base_2 = [];   
+        lambda = [];
+        d_lambda_dx = [];
+        d_lambda_da1 = [];
+        d_lambda_da2 = [];
+    end
     modelclass.eval_f = @eval_f; 
     function outputF = eval_f(x,u,a,w,dt)
         if constrained
@@ -426,11 +459,15 @@ function modelclass = modelclass_ANN(optionsfile,problem,N,N_alpha,useG,constrai
         curr_paramsF = w;
         [outputF,curr_alphaF,curr_betaF] = EvaluateANN(numnF,w(1:nwFw),w(nwFw+1:nwFw+nwFtheta),[u;x;a],f,BetaOutput);
         
-        if constrained
+        if constrained_alpha || constrained_ref
             [outputF_base  ,curr_alphaF_base  ,curr_betaF_base  ] = EvaluateANN(numnF,w(1:nwFw),w(nwFw+1:nwFw+nwFtheta),[u_star  ;x_star  ;a],f,BetaOutput);
         end
         if constrained_alpha_double
             [outputF_base_2,curr_alphaF_base_2,curr_betaF_base_2] = EvaluateANN(numnF,w(1:nwFw),w(nwFw+1:nwFw+nwFtheta),[u_star_2;x_star_2;a],f,BetaOutput);
+        end
+        if constrained_steadystate
+            [outputF_base_1 ,curr_alphaF_base_1  ,curr_betaF_base_1 ] = EvaluateANN(numnF,w(1:nwFw),w(nwFw+1:nwFw+nwFtheta),[u_star(:,1)  ;a(1)  ;a],f,BetaOutput);
+            [outputF_base_2 ,curr_alphaF_base_2  ,curr_betaF_base_2 ] = EvaluateANN(numnF,w(1:nwFw),w(nwFw+1:nwFw+nwFtheta),[u_star(:,2)  ;a(2)  ;a],f,BetaOutput);
         end
         
         if constrained_ref
@@ -442,6 +479,13 @@ function modelclass = modelclass_ANN(optionsfile,problem,N,N_alpha,useG,constrai
             lambda = ([u;x]'*diff12) / (diff12'*diff12);
             vec_times_lambda = Proj2*a - Proj1*a + outputF_base - outputF_base_2;
             outputF = outputF + (Proj1*a - outputF_base) + lambda * vec_times_lambda;
+        elseif constrained_steadystate
+            denominator = ((a(2)-a(1))^2 + (u_star(:,2) - u_star(:,1))^2);
+            lambda = ((x-a(1))*(a(2)-a(1)) + (u - u_star(:,1))*(u_star(:,2) - u_star(:,1)))/denominator;
+            outputF = outputF - outputF_base_1 - (outputF_base_2-outputF_base_1) * lambda;
+            d_lambda_dx = (a(2)-a(1))/denominator;
+            d_lambda_da1 = (denominator*(2*a(1)-x-a(2)) +2*(a(2)-a(1))*((x-a(1))*(a(2)-a(1)) + (u - u_star(:,1))*(u_star(:,2) - u_star(:,1))))/denominator^2;
+            d_lambda_da2 = (denominator*( x-a(1))       -2*(a(2)-a(1))*((x-a(1))*(a(2)-a(1)) + (u - u_star(:,1))*(u_star(:,2) - u_star(:,1))))/denominator^2;
         end
         
         if ~int_dyn
@@ -462,11 +506,18 @@ function modelclass = modelclass_ANN(optionsfile,problem,N,N_alpha,useG,constrai
         
         if constrained
             doutdthetaF = doutdthetaF(:,1:end-N);
-            
+        end
+        if constrained_alpha || constrained_ref            
             [doutdalphaF_base  ,doutdwF_base  ,doutdthetaF_base  ] = ANNSensitivityBP(numnF,curr_paramsF(1:nwFw),df,curr_alphaF_base  ,curr_betaF_base  ,BetaOutput);
             doutdthetaF_base = doutdthetaF_base(:,1:end-N);
         end
         if constrained_alpha_double
+            [doutdalphaF_base_2,doutdwF_base_2,doutdthetaF_base_2] = ANNSensitivityBP(numnF,curr_paramsF(1:nwFw),df,curr_alphaF_base_2,curr_betaF_base_2,BetaOutput);
+            doutdthetaF_base_2 = doutdthetaF_base_2(:,1:end-N);
+        end
+        if constrained_steadystate
+            [doutdalphaF_base_1,doutdwF_base_1,doutdthetaF_base_1] = ANNSensitivityBP(numnF,curr_paramsF(1:nwFw),df,curr_alphaF_base_1,curr_betaF_base_1,BetaOutput);
+            doutdthetaF_base_1 = doutdthetaF_base_1(:,1:end-N);
             [doutdalphaF_base_2,doutdwF_base_2,doutdthetaF_base_2] = ANNSensitivityBP(numnF,curr_paramsF(1:nwFw),df,curr_alphaF_base_2,curr_betaF_base_2,BetaOutput);
             doutdthetaF_base_2 = doutdthetaF_base_2(:,1:end-N);
         end
@@ -493,6 +544,16 @@ function modelclass = modelclass_ANN(optionsfile,problem,N,N_alpha,useG,constrai
                 if N_alpha > 0
                     Da = Da - (1-lambda)*doutdalphaF_base(:,nU+N+1:nU+N+N_alpha) - lambda*doutdalphaF_base_2(:,nU+N+1:nU+N+N_alpha) ...
                         + (1-lambda)*Proj1 + lambda*Proj2;
+                end
+            end
+            if constrained_steadystate
+                Dw = Dw - (1-lambda)*[doutdwF_base_1 doutdthetaF_base_1] - lambda*[doutdwF_base_2 doutdthetaF_base_2];
+                Dx = Dx - (outputF_base_2-outputF_base_1) * d_lambda_dx;
+                if N_alpha > 0
+                    Da(:,1) = Da(:,1) - (1-lambda)*(doutdalphaF_base_1(:,nU+1:nU+N)+doutdalphaF_base_1(:,nU+N+1)) ...
+                            -    lambda *doutdalphaF_base_2(:,nU+N+1) - (outputF_base_2-outputF_base_1)*d_lambda_da1;
+                    Da(:,2) = Da(:,2) -    lambda *(doutdalphaF_base_2(:,nU+1:nU+N)+doutdalphaF_base_1(:,nU+N+2)) ...
+                            - (1-lambda)*doutdalphaF_base_1(:,nU+N+2) - (outputF_base_2-outputF_base_1)*d_lambda_da2;
                 end
             end
         else
@@ -547,6 +608,22 @@ function modelclass = modelclass_ANN(optionsfile,problem,N,N_alpha,useG,constrai
         Dx  = doutdinput(:,nU+1:end);
         Dw  = [doutdw doutdtheta];
         Dwx = cat(3,ddoutdinputdw,ddoutdinputdtheta);
+    end
+
+    modelclass.eval_sensitivity_steady_state_incr = @eval_sensitivity_steady_state_incr;
+    function [Du,Dx,Duw,Dxw] = eval_sensitivity_steady_state_incr(paramsF,x,u,a)
+        if constrained
+            error('not implemented')
+        end
+        ANN.w = paramsF(1:nwFw);
+        ANN.theta = paramsF(nwFw+1:nwFw+nwFtheta);
+        [doutdinput,ddoutdinputdw,ddoutdinputdtheta] = ANNeval(ANN,[u;x;a],{'i','iw','it'},'F');
+        idxs_u = 1:nU;
+        idxs_x = nU+1:nU+N;
+        Du = permute(doutdinput(:,idxs_u),[3,4,1,2]);
+        Dx = permute(doutdinput(:,idxs_x),[3,4,1,2]);
+        Duw = permute(cat(3, ddoutdinputdw(:,idxs_u,:), ddoutdinputdtheta(:,idxs_u,:)),[3,1,2,4,5]);  
+        Dxw = permute(cat(3, ddoutdinputdw(:,idxs_x,:), ddoutdinputdtheta(:,idxs_x,:)),[3,1,2,4,5]);    
     end
 
     if ~constrained
@@ -646,6 +723,9 @@ function modelclass = modelclass_ANN(optionsfile,problem,N,N_alpha,useG,constrai
        modelclass.fix_alpha = @fix_alpha_alphacon1;
     elseif constrained_alpha_double
        modelclass.fix_alpha = @fix_alpha_alphacon2;
+%     TODO: implement?
+%     elseif constrained_steadystate
+%        modelclass.fix_alpha = @fix_alpha_steadystate;
     end
     function Alpha_0 = fix_alpha_alphacon1(Alpha_0)
         if ~isempty(initalphadir)
@@ -664,6 +744,9 @@ function modelclass = modelclass_ANN(optionsfile,problem,N,N_alpha,useG,constrai
             end
         end
     end	
+%     function Alpha_0 = fix_alpha_steadystate(Alpha_0)
+%         %TODO
+%     end	
 
     modelclass.visualize = @visualize;
     function visualize(paramsF,paramsG,opt_vis)
@@ -705,8 +788,12 @@ function modelclass = modelclass_ANN(optionsfile,problem,N,N_alpha,useG,constrai
     end
 
     modelclass.save_compact_file = @save_compact_file;
-    function save_compact_file(path,paramsF,paramsG,normalize,x0)
+    function save_compact_file(path,paramsF,paramsG,normalize,x0,opt)
         
+        opt.dummy = 0;
+        if ~isfield(opt,'mat_file')
+            opt.mat_file = 1;
+        end
 %         if constrained_ref
 %             paramsF = [paramsF;zeros(N,1)];
 %         end
@@ -755,9 +842,28 @@ function modelclass = modelclass_ANN(optionsfile,problem,N,N_alpha,useG,constrai
             end
         end
         
-        save(path,'N','W','T','x0','useG')
-        if useG
-            save(path,'W_G','T_G','-append')
+        if opt.mat_file
+            save(path,'N', 'nU', 'nY', 'W','T','x0','useG')
+            if useG
+                save(path,'W_G','T_G','-append')
+            end
+        else
+            create_directory_if_not_found(path);
+            % writing setup file
+            f_setup = fopen([path '/setup'],'w');
+            fprintf(f_setup, '%% number of variables:\n');
+            fprintf(f_setup, '%d\n', N);
+            fprintf(f_setup, '%% number of hidden layers:\n');
+            fprintf(f_setup, '%d\n', nLayF - 2);
+            fclose(f_setup);
+            
+            % writing initial state
+            writematrix(x0', [path '/initial_state.csv']);
+            
+            for i = 1:nLayF-1
+                writematrix(W{i} , sprintf('%s/weights_%d.csv',path,i-1));
+                writematrix(T{i}', sprintf('%s/biases_%d.csv',path,i-1));
+            end
         end
         fprintf('compact file saved!\n')
     end

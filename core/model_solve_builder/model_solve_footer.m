@@ -19,6 +19,9 @@
         if isfield(test,'yy') && opt.save_y_ex
             output.yy_ex = yy_ex;
         end
+        if isfield(test,'label')
+            output.label = test.label;
+        end
 
         if opt.verbose
             fprintf('   model solved --- time elapsed: %1.2e s', timeElapsed)

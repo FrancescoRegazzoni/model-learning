@@ -40,5 +40,5 @@ legend('DE','DEbis','DEnum');
 subplot(1,2,2)
 plot(DF(:)')
 hold on
-plot(DFnum(:)')
+plot(DFnum(:)','--')
 legend('DF','DFnum');

@@ -38,6 +38,13 @@ function mod = read_model_fromfile(problem,model_folder,opt)
     useG                = iniread(optionsfile,'Model','useG','d',0);
     modelclassname      = iniread(optionsfile,'Model','modelclass','s','@modelclass_ANN');
     dt_integration      = iniread(optionsfile,'Numerics','dt_integration','s');
+    
+    
+    ds_def.type         = iniread(optionsfile,'Problem','dataset_type','s','file');
+    ds_def.source_train = iniread(optionsfile,'Problem','dataset_source_train','s');
+    ds_def.source_tests = iniread(optionsfile,'Problem','dataset_source_tests','s');
+    ds_def.source       = iniread(optionsfile,'Problem','dataset_source','s');
+    ds_def.problem = problem;
 
     netw = load(fileNet);
     opts = load(fileOpt,'xhat_init');
@@ -99,6 +106,14 @@ function mod = read_model_fromfile(problem,model_folder,opt)
     if ~isfield(normalize,'alpha_norm')
         normalize.alpha_norm = ones(N_alpha,1);
     end
+    if isstruct(normalize.alpha_norm)
+        A_a = (normalize.alpha_norm.max-normalize.alpha_norm.min)/2;
+        B_a = (normalize.alpha_norm.max+normalize.alpha_norm.min)/2;
+    else
+        A_a = normalize.alpha_norm;
+        B_a = zeros(N_alpha,1);
+    end   
+    
 
     f_renormalized = 0;
     g_renormalized = 0;
@@ -141,7 +156,7 @@ function mod = read_model_fromfile(problem,model_folder,opt)
         if f_renormalized
             mod.f_alpha = f_alpha_base;
         else
-            mod.f_alpha = @(x,u,a) A_x.*f_alpha_base((x-B_x)./A_x,(u-B_u)./A_u,a./normalize.alpha_norm)/normalize.t_norm;
+            mod.f_alpha = @(x,u,a) A_x.*f_alpha_base((x-B_x)./A_x,(u-B_u)./A_u,(a-B_a)./A_a)/normalize.t_norm;
         end
     else
         if isfield(modelclass,'get_smart_handle_f')
@@ -168,17 +183,19 @@ function mod = read_model_fromfile(problem,model_folder,opt)
         end
     end
 
-    if problem.samples_variability
+    if problem.samples_variability 
         samples = load(fileOpt,'d');
-        alpha_original = [];
-        for iS = 1:length(samples.d.train)
-           alpha_original = [alpha_original samples.d.train{iS}.alpha];
+        if isfield(samples.d.train{1}, 'alpha')
+            alpha_original = [];
+            for iS = 1:length(samples.d.train)
+               alpha_original = [alpha_original samples.d.train{iS}.alpha];
+            end
+            mod.alpha_original = alpha_original;
         end
-        mod.alpha_original = alpha_original;
     end
 
     if N_alpha > 0
-        mod.alpha_learned = netw.Alpha.*normalize.alpha_norm;
+        mod.alpha_learned = B_a + netw.Alpha.*A_a;
         mod.alpha_min = min(mod.alpha_learned,[],2);
         mod.alpha_max = max(mod.alpha_learned,[],2);
         for iA = 1:N_alpha
@@ -234,7 +251,7 @@ function mod = read_model_fromfile(problem,model_folder,opt)
     if f_renormalized
         mod.dfdx = dfdx_base;
     else
-        mod.dfdx = @(x,u,a) A_x.*dfdx_base((x-B_x)./A_x,(u-B_u)./A_u,a./normalize.alpha_norm)./A_x'/normalize.t_norm;
+        mod.dfdx = @(x,u,a) A_x.*dfdx_base((x-B_x)./A_x,(u-B_u)./A_u,(a-B_a)./A_a)./A_x'/normalize.t_norm;
     end
     function Dx = dfdx(x,u,a)
         modelclass.eval_f(x,u,a,paramsF,mod.dt);
@@ -245,7 +262,7 @@ function mod = read_model_fromfile(problem,model_folder,opt)
     if f_renormalized
         mod.dfda = dfda_base;
     else
-        mod.dfda = @(x,u,a) A_x.*dfda_base((x-B_x)./A_x,(u-B_u)./A_u,a./normalize.alpha_norm)./normalize.alpha_norm'/normalize.t_norm;
+        mod.dfda = @(x,u,a) A_x.*dfda_base((x-B_x)./A_x,(u-B_u)./A_u,(a-B_a)./A_a)./A_a'/normalize.t_norm;
     end
     function Da = dfda(x,u,a)
         modelclass.eval_f(x,u,a,paramsF,mod.dt);
@@ -276,6 +293,8 @@ function mod = read_model_fromfile(problem,model_folder,opt)
         mod.EE_n = netw.EE_n;
         mod.EE_n_test = netw.EE_n_test;
     end
+    
+    mod.datasets_def = ds_def;
 
     if isfield(modelclass,'visualize')
         mod.visualize = @visualize;    
@@ -287,9 +306,13 @@ function mod = read_model_fromfile(problem,model_folder,opt)
 
     if isfield(modelclass,'save_compact_file')
         mod.save_compact_file = @save_compact_file;
+        mod.save_compact_dir = @save_compact_dir;
     end
     function save_compact_file()
-        modelclass.save_compact_file([fullANNpath,'/compact.mat'],paramsF,paramsG,normalize,x0);
+        modelclass.save_compact_file([fullANNpath,'/compact.mat'],paramsF,paramsG,normalize,x0,struct('mat_file',1));
+    end
+    function save_compact_dir()
+        modelclass.save_compact_file([fullANNpath,'/compact'],paramsF,paramsG,normalize,x0,struct('mat_file',0));
     end
 
     if isfield(modelclass,'get_raw_model')
@@ -310,7 +333,7 @@ function mod = read_model_fromfile(problem,model_folder,opt)
         loglog(sqrt(netw.EE_w(netw.Act==1,:))','linewidth',2);
         ax = gca;
         ax.ColorOrderIndex = 1;
-        loglog(sqrt(netw.EE_w_test)','--','linewidth',2);
+        loglog(sqrt(netw.EE_w_test)','-','linewidth',1);
         grid on              
         if isfield(netw,'Leg')
     %         legend([{'ERR'} netw.Leg{netw.Act==1} {'EFFdiff (test)'}] , ...
@@ -332,7 +355,7 @@ function mod = read_model_fromfile(problem,model_folder,opt)
         hold on
         ax = gca;
         ax.ColorOrderIndex = 1;
-        loglog(sqrt(netw.EE_n_test)','--','linewidth',2);
+        loglog(sqrt(netw.EE_n_test)','-','linewidth',1);
         grid on
         title('absolute values')
     end

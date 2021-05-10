@@ -1,0 +1,6 @@
+problem               | dir             | noise | comment
+param_pend_th0_c      | ANN_noise_1e-01 | 1e-1  |
+param_pend_th0_c      | ANN_noise_1e-02 | 1e-2  |
+param_pend_th0_c      | ANN_noise_1e-03 | 1e-3  |
+param_pend_th0_c      | ANN_noise_1e-04 | 1e-4  |
+param_pend_th0_c      | ANN_noise_1e-05 | 1e-5  |

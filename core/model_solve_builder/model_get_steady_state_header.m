@@ -21,6 +21,15 @@ function [y,x] = model_get_steady_state(model,u_steady,opt)
         opt.x0 = [];
     end
     
+    %% black-box    
+    if ~isfield(model,'blackbox')
+        model.blackbox = 0;
+    end   
+    if model.blackbox
+        [y,x] = model.get_steady_state(u_steady);
+        return
+    end
+    
     %% initialization
     if isempty(opt.x0)
         x = model.x0;

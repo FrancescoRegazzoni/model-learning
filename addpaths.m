@@ -11,7 +11,11 @@ function addpaths(mainpath)
     addpath([mainpath '/optimization'])
     addpath([mainpath '/mor_projection'])
     addpath([mainpath '/mor_datadriven'])
+    addpath([mainpath '/data_assimilation'])
+
+    % addpath(genpath(...));
+    % rmpath(genpath(...));
 
     fprintf(' --- model learning: path added.\n')
-    
+
 end

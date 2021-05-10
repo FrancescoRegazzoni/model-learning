@@ -63,7 +63,21 @@ function output = model_solve(test,model,opt)
     
     
     if model.blackbox
+        
+        init = tic();          
         output = model.forward_function(test,opt);
+        timeElapsed = toc(init);
+        
+        if ~isfield(output,'time')            
+            output.time = timeElapsed;
+        end
+        if ~isfield(output,'time_norm')            
+            output.time_norm = timeElapsed/(output.tt(end)-output.tt(1));
+        end
+        if ~isfield(output,'tt_y')            
+            output.tt_y = output.tt;
+        end
+        
     else
 
         %% custom initialization

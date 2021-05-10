@@ -55,7 +55,11 @@ x0_max              = iniread(optionsfile,'Initialization','x0_max','d',0);
 alpha_min           = iniread(optionsfile,'Initialization','alpha_min','d',0);
 alpha_max           = iniread(optionsfile,'Initialization','alpha_max','d',0);
 
+customPenalizations = iniread(optionsfile,'Penalizations','custom_penalizations','s','');
 diffPen_s           = iniread(optionsfile,'Penalizations','pen_diff','s','1');
+diffPen_type        = iniread(optionsfile,'Penalizations','pen_diff_type','s','q');
+diffPen_discr_toll  = iniread(optionsfile,'Penalizations','pen_diff_discrete_tol','d',.5);
+diffPen_discr_coeff = iniread(optionsfile,'Penalizations','pen_diff_discrete_coeff_within_int','d',1e-2);
 alphaPen_s          = iniread(optionsfile,'Penalizations','pen_end','s','0');
 alphaRaise_s        = iniread(optionsfile,'Penalizations','pen_raise','s','0');
 targetRaise         = iniread(optionsfile,'Penalizations','RaiseTarget');
@@ -320,6 +324,21 @@ if isfield(modelclass,'set_xref')
     modelclass.set_xref(xhat_end);
 end
 
+switch diffPen_type
+    case 'q'
+        loss_diff = @(x) x;
+        d_loss_diff = @(x) ones(length(x),1);
+    case 'd'
+        toll_normalized = diffPen_discr_toll ./ ((normalization.y_max - normalization.y_min)/2);
+        loss_diff = @(x) diffPen_discr_coeff*min(toll_normalized,max(-toll_normalized,x)) ...
+                         + max(0,x - toll_normalized) ...
+                         + min(0,x + toll_normalized);
+        d_loss_diff = @(x) diffPen_discr_coeff + (1-diffPen_discr_coeff)*(abs(x) >= toll_normalized);
+    otherwise
+        error(['Penalization type ' diffPen_type ' not recognized'])
+end
+
+
 %% Initial conditions initialization
 
 if ~problem.fixed_x0
@@ -347,6 +366,7 @@ end
 
 %% Samples-specific parameters initialization (alpha)
 
+alpha_manually_fixed = 0;
 if N_alpha > 0
     alpha_min = adapt_dimension(alpha_min,N_alpha);
     alpha_max = adapt_dimension(alpha_max,N_alpha);
@@ -354,6 +374,7 @@ if N_alpha > 0
     nAL = N_alpha*nS;
     if isfield(modelclass,'fix_alpha')
         Alpha_0 = modelclass.fix_alpha(Alpha_0);
+        alpha_manually_fixed = 1;
     end
 else
     nAL = 0;
@@ -365,9 +386,22 @@ pen_handlers{2} = penalization_origin_equilibrium(optionsfile);
 pen_handlers{3} = penalization_dfdalpha(optionsfile);
 pen_handlers{4} = penalization_f_constrained_wrt_alpha(optionsfile);
 pen_handlers{5} = penalization_ref_equilibrium(optionsfile);
+pen_handlers{6} = penalization_alpha_equilibria(optionsfile);
+pen_handlers{7} = penalization_steady_state_increasing(optionsfile);
+pen_handlers{8} = penalization_rhs_increasing(optionsfile);
+pen_handlers{9} = penalization_initial_state_equilibrium(optionsfile);
+
+custom_pen_list = strsplit(customPenalizations,';');
+for ip = 1:length(custom_pen_list)
+    if ~isempty(custom_pen_list{ip})
+        penalization_handler = eval(custom_pen_list{ip});
+        pen_handlers = [pen_handlers {penalization_handler(optionsfile)}];
+    end
+end
 
 misc.xhat_end = xhat_end;
 misc.normaliz = normalization;
+misc.tr = tr;
 for ipen = 1:length(pen_handlers)
     for ipenloc=1:pen_handlers{ipen}.num_pen
         coef_string = pen_handlers{ipen}.coefficient_string{ipenloc};
@@ -378,7 +412,7 @@ for ipen = 1:length(pen_handlers)
     if isfield(pen_handlers{ipen},'alpha_norm')
         if isfield(normalization,'alpha_norm')
             if ~isempty(normalization.alpha_norm) && ~isequal(normalization.alpha_norm, pen_handlers{ipen}.alpha_norm)
-                warning('different alpha_norm specified by multiple agents (modelclass and/or penalizations')
+                error('different alpha_norm specified by multiple agents (modelclass and/or penalizations')
             end
         end
         normalization.alpha_norm = pen_handlers{ipen}.alpha_norm;
@@ -393,8 +427,15 @@ for ipen = 1:length(pen_handlers)
     end
 
     if N_alpha > 0
-        if isfield(pen_handlers{ipen},'fix_alpha')
-            Alpha_0 = pen_handlers{ipen}.fix_alpha(pen_handlers{ipen},problem,Alpha_0);
+        if any(pen_handlers{ipen}.pen_active) && isfield(pen_handlers{ipen},'fix_alpha')
+            Alpha_0_new = pen_handlers{ipen}.fix_alpha(pen_handlers{ipen},problem,Alpha_0);
+            if alpha_manually_fixed
+                if isequal(Alpha_0_new,Alpha_0)
+                    error('Alpha_0 set to different values by multiple agents')
+                end
+            end
+            Alpha_0 = Alpha_0_new;
+            alpha_manually_fixed = 1;
         end
     end
 end
@@ -865,6 +906,7 @@ function [varargout] = Evaluation(Params,compErr,compGrad,compRes,compJac,step_f
             z = zeros(N,nT);
             y = zeros(nY,nT);
             e = zeros(nY,nT);
+            de = zeros(nY,nT);
 
             if compGrad || compJac
                 Dwf = zeros(N,nwF,nT);
@@ -921,17 +963,21 @@ function [varargout] = Evaluation(Params,compErr,compGrad,compRes,compJac,step_f
                 end
                 if iT<nT
                     if iS<=nS
-                        e(:,iT) = y(:,iT) - q.yy(:,iT);
+                        diff = y(:,iT) - q.yy(:,iT);
+                        e(:,iT) = loss_diff(diff);
                         if stepEval && q.eval_diff && diffPen > 0
+                            if (compGrad || compJac)
+                                de(:,iT) = d_loss_diff(diff);
+                            end
                             ERRdiff = ERRdiff + dtEval(iTeval)*(e(:,iT)'*e(:,iT));
                             if is_y_noised
-                                e_ex = y(:,iT) - q.yy_ex(:,iT);
+                                e_ex = loss_diff(y(:,iT) - q.yy_ex(:,iT));
                                 ERRdiff_ex = ERRdiff_ex + dtEval(iTeval)*(e_ex'*e_ex);                                
                             end
                         end
                     else
                         if stepEval
-                            e_test = y(:,iT) - q.yy(:,iT);
+                            e_test = loss_diff(y(:,iT) - q.yy(:,iT));
                             ERRdiff_test = ERRdiff_test + dtEval(iTeval)*(e_test'*e_test);
                         end
                     end
@@ -940,21 +986,21 @@ function [varargout] = Evaluation(Params,compErr,compGrad,compRes,compJac,step_f
 
                 if iS<=nS
                     if iT>1 && (compGrad || compJac)
-
                         [Dw,Dx,Da] = modelclass.eval_sensitivity_f();
                         Dwf(:,:,iT-1) = Dw;
                         Dxf(:,:,iT-1) = Dx;
                         if N_alpha > 0
                             Daf(:,:,iT-1) = Da;
                         end
-%                         
                     end
-                    if iT<nT && stepEval 
-                        if compGrad || compJac
+                    
+                    if iT<nT && stepEval
+                        if (compGrad || compJac) 
                             if useG
                                 [Dw,Dx] = modelclass.eval_sensitivity_g(); 
                                 if compGrad 
-                                    DG = DG + 2*normFactDiff*dtEval(iTeval)*Dw'*e(:,iT);
+                                    %TODO: if q.eval_diff?
+                                    DG = DG + 2*normFactDiff*dtEval(iTeval)*Dw'*(e(:,iT).*de(:,iT));
                                 end
                                 Dxg(:,:,iTeval) = Dx;
                             else
@@ -962,45 +1008,18 @@ function [varargout] = Evaluation(Params,compErr,compGrad,compRes,compJac,step_f
                             end
                         end
 
-                        if q.eval_diff && diffPen > 0
-                            if compRes || compJac
+                        if (compRes || compJac) 
+                            if q.eval_diff && diffPen > 0
                                 iRes =  iResStart + (iTeval-1)*nY;
                                 iiRes = iRes+1:iRes+nY;
                                 if compJac && useG
-                                    JacG(iiRes,:) = sqrt(dtEval(iTeval))*Dw;
+                                    JacG(iiRes,:) = sqrt(dtEval(iTeval))*Dw.*de(:,iT);
                                 end
                                 if compRes
                                     Res(iiRes) = sqrt(dtEval(iTeval))*e(:,iT);
                                 end
-                            end
-                        end 
-                    end
-
-
-
-                    if iT<nT && stepEval && (compGrad || compJac) 
-                        if useG
-                            [Dw,Dx] = modelclass.eval_sensitivity_g(); 
-                            if compGrad 
-                                DG = DG + 2*normFactDiff*dtEval(iTeval)*Dw'*e(:,iT);
-                            end
-                            Dxg(:,:,iTeval) = Dx;
-                        else
-                            Dxg(:,:,iTeval) = [eye(nY) zeros(nY,N-nY)];
+                            end 
                         end
-
-                        if q.eval_diff && diffPen > 0
-                            if compRes || compJac
-                                iRes =  iResStart + (iTeval-1)*nY;
-                                iiRes = iRes+1:iRes+nY;
-                                if compJac && useG
-                                    JacG(iiRes,:) = sqrt(dtEval(iTeval))*Dw;
-                                end
-                                if compRes
-                                    Res(iiRes) = sqrt(dtEval(iTeval))*e(:,iT);
-                                end
-                            end
-                        end 
                     end
 
                 end
@@ -1082,7 +1101,7 @@ function [varargout] = Evaluation(Params,compErr,compGrad,compRes,compJac,step_f
                             if diffPen > 0 && q.eval_diff
                                 if idxEval(iTeval) == iT
                                     %z(:,iT) = z(:,iT) + dtEval(iTeval)*Dxg(:,:,iT)'*e(:,iT);
-                                    z(:,iT) = z(:,iT) + 2*diffPen^2*normFactDiff*dtEval(iTeval)*Dxg(:,:,iTeval)'*e(:,iT);
+                                    z(:,iT) = z(:,iT) + 2*diffPen^2*normFactDiff*dtEval(iTeval)*Dxg(:,:,iTeval)'*(e(:,iT).*de(:,iT));
                                     iTeval = iTeval-1;
                                 end
                             end
@@ -1118,7 +1137,7 @@ function [varargout] = Evaluation(Params,compErr,compGrad,compRes,compJac,step_f
                                 %iRes = (iS-1)*nTeval*nY + (iTeval-1)*nY + iY; 
                                 iRes =  iResStart + (iTeval-1)*nY + iY;                           
                                 %z(:,idxEval(iTeval)) = sqrt(dtEval(iTeval))*Dxg(iY,:,idxEval(iTeval));
-                                z(:,idxEval(iTeval)) = sqrt(dtEval(iTeval))*Dxg(iY,:,iTeval);
+                                z(:,idxEval(iTeval)) = sqrt(dtEval(iTeval))*Dxg(iY,:,iTeval)*de(iY,idxEval(iTeval));
                                 for iT = idxEval(iTeval)-1:-1:1
 %                                     if iT>1
                                         z(:,iT) = z(:,iT+1) + dt(iT) * Dxf(:,:,iT)'*z(:,iT+1);
@@ -1465,31 +1484,42 @@ function [varargout] = Evaluation(Params,compErr,compGrad,compRes,compJac,step_f
 
             if problem.samples_variability 
                 subplot(axHistory_2);
-                if N_alpha == 1 && size(tr{1}.alpha,1) == 1
-                    if isfield(normalization,'alpha_to_alpha')
-                        npt = 1e2;
-                        aa = linspace(0,1,npt);
-                        for ia = 1:npt
-                            aa_tilde(ia) = normalization.alpha_to_alpha(aa(ia));
+                
+                if isstruct(normalization.alpha_norm)
+                    A_a = (normalization.alpha_norm.max-normalization.alpha_norm.min)/2;
+                    B_a = (normalization.alpha_norm.max+normalization.alpha_norm.min)/2;
+                else
+                    A_a = normalization.alpha_norm;
+                    B_a = zeros(N_alpha,1);
+                end   
+    
+                if N_alpha == 1 && isfield(tr{1}, 'alpha')
+                    if size(tr{1}.alpha,1) == 1
+                        if isfield(normalization,'alpha_to_alpha')
+                            npt = 1e2;
+                            aa = linspace(0,1,npt);
+                            for ia = 1:npt
+                                aa_tilde(ia) = normalization.alpha_to_alpha(aa(ia));
+                            end
+                            plot(aa_tilde,aa,'k-')
+                            hold on
                         end
-                        plot(aa_tilde,aa,'k-')
-                        hold on
+                        for iS = 1:nS
+                            hhh = plot(Alpha(1,iS).*A_a + B_a, tr{iS}.alpha,'o');
+                            set(hhh, 'MarkerFaceColor', get(hhh,'Color')); 
+                            hold on                            
+                        end
+                        xlabel('learned')
+                        ylabel('real')
+                        al_min_plot = min(Alpha.*A_a + B_a);
+                        al_max_plot = max(Alpha.*A_a + B_a);
+                        if al_min_plot == al_max_plot
+                            al_min_plot = al_min_plot-1;
+                            al_max_plot = al_max_plot+1;
+                        end
+                        axis([al_min_plot al_max_plot -inf inf])
+                        hold off  
                     end
-                    for iS = 1:nS
-                        hhh = plot(Alpha(1,iS).*normalization.alpha_norm, tr{iS}.alpha,'o');
-                        set(hhh, 'MarkerFaceColor', get(hhh,'Color')); 
-                        hold on                            
-                    end
-                    xlabel('learned')
-                    ylabel('real')
-                    al_min_plot = min(Alpha*normalization.alpha_norm);
-                    al_max_plot = max(Alpha*normalization.alpha_norm);
-                    if al_min_plot == al_max_plot
-                        al_min_plot = al_min_plot-1;
-                        al_max_plot = al_max_plot+1;
-                    end
-                    axis([al_min_plot al_max_plot -inf inf])
-                    hold off  
                 end
                 if N_alpha == 0 && N == nY+1 && size(tr{1}.alpha,1) == 1
                     for iS = 1:nS
@@ -1499,6 +1529,16 @@ function [varargout] = Evaluation(Params,compErr,compGrad,compRes,compJac,step_f
                     end
                     xlabel('learned')
                     ylabel('real')
+                    hold off  
+                end
+                if N_alpha == 2
+                    for iS = 1:nS
+                        hhh = plot(Alpha(1,iS).*A_a + B_a, Alpha(2,iS).*A_a + B_a,'o');
+                        set(hhh, 'MarkerFaceColor', get(hhh,'Color')); 
+                        hold on                            
+                    end
+                    xlabel('\alpha_1')
+                    ylabel('\alpha_2')
                     hold off  
                 end
             end

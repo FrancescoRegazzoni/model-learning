@@ -25,6 +25,15 @@ dataset_generate_random(HFmod,200,optGen);
 optGen.outFile = 'samples_x_rnd_B.mat';
 dataset_generate_random(HFmod,200,optGen);
 %%
+rng('default')
+optGen = optGen_base;
+optGen.T = 1;
+optGen.constant = 0;
+optGen.save_x = 1;
+optGen.save_x_dt = 1e-2;
+optGen.outFile = 'samples_x_detailed_rnd.mat';
+dataset_generate_random(HFmod,1,optGen);
+%%
 rng(1)
 optGen = optGen_base;
 optGen.T = 1;

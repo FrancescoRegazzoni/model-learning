@@ -13,19 +13,19 @@ model_solve(test_solve,HFmod,struct('do_plot',1));
 %% Generate tests
 rng('default')
 
-optGen.do_plot = 1;
-optGen.do_save = 1;
-optGen.optRandomU.time_scale = .02; 
+opt_gen.do_plot = 1;
+opt_gen.do_save = 1;
+opt_gen.optRandomU.time_scale = .02; 
 
-optGen.outFile = 'samples_rnd.mat';
-dataset_generate_random(HFmod,100,optGen);
+opt_gen.outFile = 'samples_rnd.mat';
+dataset_generate_random(HFmod,100,opt_gen);
 
-optGen.constant = 1;
-optGen.wait_init = 1;
-optGen.wait_init_time_wait = .2;
-optGen.wait_init_time_raise = 0;
-optGen.outFile = 'samples_step.mat';
-dataset_generate_random(HFmod,50,optGen);
+opt_gen.constant = 1;
+opt_gen.wait_init = 1;
+opt_gen.wait_init_time_wait = .2;
+opt_gen.wait_init_time_raise = 0;
+opt_gen.outFile = 'samples_step.mat';
+dataset_generate_random(HFmod,50,opt_gen);
 
 %% Dataset loading
 dataset_def.problem = problem;

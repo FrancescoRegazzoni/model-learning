@@ -14,6 +14,12 @@ function dataset_plot(dataset,problem,opt)
     if ~isfield(opt,'idx_samples') 
         opt.idx_samples = [];
     end
+    if ~isfield(opt,'plot_x') 
+        opt.plot_x = 0;
+    end
+    if ~isfield(opt,'plot_x_idxs') 
+        opt.plot_x_idxs = -1;
+    end
     if ~isfield(opt,'do_save') 
         opt.do_save = 0;
     end
@@ -66,11 +72,17 @@ function dataset_plot(dataset,problem,opt)
     if ~isfield(opt,'linewidth_y')
         opt.linewidth_y = 1; 
     end
+    if ~isfield(opt,'linewidth_x')
+        opt.linewidth_x = 1; 
+    end
     if ~isfield(opt,'normalized_u') 
         opt.normalized_u = 0;
     end
     if ~isfield(opt,'normalized_y') 
         opt.normalized_y = 0;
+    end
+    if ~isfield(opt,'grid_on')
+        opt.grid_on = 0;
     end
     
         
@@ -166,49 +178,19 @@ function dataset_plot(dataset,problem,opt)
             win_sizes = plotting_get_axes(opt.num_rows,opt.num_cols,opt.size_opt);
             figure('units','pixel','position',[100 100 win_sizes.width win_sizes.heigth]);
         end
-        
-        
-%         if opt.plot_legend
-%             leg_position_x = (1-opt.legend_size(1))/2;
-%             leg_position_y = 0.05;
-%             leg_position = [leg_position_x leg_position_y opt.legend_size(1) opt.legend_size(2)];
-%             opt.bottom_margin = opt.bottom_margin + leg_position_y + opt.legend_size(2);
-%         end
-%         
-%         if ~opt.automargin
-%             widthPlot = (1-opt.left_margin-opt.right_margin)/opt.num_cols;
-%             heigthPlot = (1-opt.bottom_margin-opt.top_margin)/opt.num_rows;
-%         end
-%         
-%         row_Curr = 0;
-%         col_Curr = 0;
-%         for j = 1:nS
-%             if ~opt.automargin
-%                 leftCurr = opt.left_margin+col_Curr*widthPlot;
-%                 bottomCurr = 1 - opt.top_margin - (row_Curr+1)*heigthPlot;
-%                 axs(j) = subplot('Position',[leftCurr   +   opt.margin_plot_h ...
-%                                              bottomCurr +   opt.margin_plot_v ...
-%                                              widthPlot  - 2*opt.margin_plot_h ...
-%                                              heigthPlot - 2*opt.margin_plot_v ]);
-%             end
-%             axs_idxcol(j) = col_Curr + 1;
-%             axs_idxrow(j) = row_Curr + 1;
-%             col_Curr = col_Curr+1;
-%             if col_Curr == opt.num_cols
-%                 col_Curr = 0;
-%                 row_Curr = row_Curr+1;
-%             end
-%         end
-        
+                
         for iS = 1:nS
 
             iSloc = opt.idx_samples(iS);
+            
+            if ~isfield(dataset{iSloc},'tt_y')
+                dataset{iSloc}.tt_y = dataset{iSloc}.tt;
+            end
 
             if opt.automargin
                 subplot(opt.num_rows,opt.num_cols,iS)
             else
                 subplot('Position',win_sizes.axs{iS}.coord_norm)
-%                 subplot(axs(iS))
             end
             
             if problem.nU > 0
@@ -240,10 +222,10 @@ function dataset_plot(dataset,problem,opt)
             end
             if isfield(dataset{iSloc},'yy')
                 if  opt.normalized_y
-                    plot(dataset{iSloc}.tt,(dataset{iSloc}.yy - problem.y_min)./(problem.y_max - problem.y_min), ...
+                    plot(dataset{iSloc}.tt_y,(dataset{iSloc}.yy - problem.y_min)./(problem.y_max - problem.y_min), ...
                         '-','linewidth',opt.linewidth_y); hold on;
                 else
-                    plot(dataset{iSloc}.tt,dataset{iSloc}.yy, ...
+                    plot(dataset{iSloc}.tt_y,dataset{iSloc}.yy, ...
                         '-','linewidth',opt.linewidth_y); hold on;
                 end
             end
@@ -251,6 +233,18 @@ function dataset_plot(dataset,problem,opt)
                 axis([0 max(dataset{iSloc}.tt) 0 1]) 
             else
                 axis([0 max(dataset{iSloc}.tt) opt.y_lim]) 
+            end
+            if opt.grid_on
+                grid on
+            end
+            
+            if opt.plot_x
+                if isequal(opt.plot_x_idxs, -1)
+                    opt.plot_x_idxs = 1:size(dataset{iSloc}.xx,1);
+                end
+                    
+                plot(dataset{iSloc}.tt, dataset{iSloc}.xx(opt.plot_x_idxs,:), ...
+                    'k--','linewidth',opt.linewidth_x); hold on;
             end
             
 %             Tmax = max(set{iSloc}.tt);
@@ -269,7 +263,11 @@ function dataset_plot(dataset,problem,opt)
 % 
 %             plot(set{iSloc}.tt,(set{iSloc}.yy-opts.lim_y(1))/(opts.lim_y(2)-opts.lim_y(1)),'linewidth',linewidthplots,'Color',col_y); hold on;
 % 
-%             axis([0 Tmax opts.yLimits])    
+%             axis([0 Tmax opts.yLimits])   
+
+            if isfield(dataset{iSloc},'label')
+                title(dataset{iSloc}.label)
+            end
 
             if opt.show_x_ticks == 0
                 set(gca,'XTickLabel',[]);
@@ -330,8 +328,6 @@ function dataset_plot(dataset,problem,opt)
                     
         if opt.plot_legend
             myleg = legend(problem_getvariablename_list(problem),'Orientation','horizontal');
-%             set(myleg,'Position', leg_position,'Units', 'normalized');
-%             set(myleg,'position', win_sizes.legend_coord_norm, 'units', 'normalized');       
             set(myleg,'position', win_sizes.get_legend_coord_norm(myleg.Position), 'units', 'normalized');           
         end
 

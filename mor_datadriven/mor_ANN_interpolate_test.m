@@ -65,9 +65,12 @@ function out = mor_ANN_interpolate_test(problem,in,dt_integration,dt_evaluation,
     if isfield(in,'uu')
         out.uu = interp_time_series(in.tt,in.uu,Newtt,struct('mode',interpolation_mode_u));
     end
-    out.yy = interp_time_series(in.tt,in.yy,Newtt,struct('mode',interpolation_mode_y));
+    if ~isfield(in,'tt_y')
+        in.tt_y = in.tt;
+    end
+    out.yy = interp_time_series(in.tt_y,in.yy,Newtt,struct('mode',interpolation_mode_y));
     if isfield(in,'yy_ex')
-        out.yy_ex = interp_time_series(in.tt,in.yy_ex,Newtt,struct('mode',interpolation_mode_y));
+        out.yy_ex = interp_time_series(in.tt_y,in.yy_ex,Newtt,struct('mode',interpolation_mode_y));
     end
         
 %     if ~isequal(in.tt,Newtt)        
@@ -98,7 +101,7 @@ function out = mor_ANN_interpolate_test(problem,in,dt_integration,dt_evaluation,
     out.dt = out.tt(2:end)-out.tt(1:end-1);
     out.dtEval = [out.tt(out.idxEval(2:end))-out.tt(out.idxEval(1:end-1)) (out.tt(end)-out.tt(out.idxEval(end)))];
     
-    if problem.samples_variability
+    if problem.samples_variability && isfield(in, 'alpha')
         out.alpha = in.alpha;
     end
 end
