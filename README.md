@@ -1,8 +1,10 @@
+[![Documentation Status](https://readthedocs.org/projects/model-learning/badge/?version=latest)](https://model-learning.readthedocs.io/en/latest/?badge=latest)
+
 # Model Learning #
 
 Matlab (R) library for model learning and model reduction. The main methods and algorithms implemented in the library have been introduced in the papers [1,2], wherein they are derived and documented.
 
-For information about the installation and usage of the library, check out the [documentation](https://model-learning.gitlab.io/model-learning).
+For information about the installation and usage of the library, check out the [documentation](https://model-learning.readthedocs.io).
 
 # References
 
