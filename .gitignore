@@ -5,6 +5,13 @@ runlist.txt
 *.asv
 .DS_Store
 *.m~
+
 __pycache__
 *.pyc
+.vscode
+*.egg-info
+*.egg
+build*
+dist*
+
 .vscode

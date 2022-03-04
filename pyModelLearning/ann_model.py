@@ -2,21 +2,31 @@ import scipy.io as sio
 import numpy as np
 import configparser
 import os
+import json
 
 class ANNmodel:
     def __init__(self, path, relative = True):
 
         if relative:
-            config = configparser.ConfigParser()
-            script_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+            try:
+                import json
+                config_file = os.path.expanduser('~') + '/.py-model-learning'
+                with open(config_file) as f:
+                    config = json.load(f)
+                script_path = config['model-learning_path']
+            except:
+                script_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
-            print(script_path)
+            # print(script_path)
 
+            config = configparser.RawConfigParser()
             config.read(script_path + '/options.ini')
             datapath = config['paths']['datapath']
+            if datapath[0] == '%':
+                datapath = script_path + datapath[1:]
             path = datapath + '/' + path
 
-            print(path)
+            # print(path)
 
         data = sio.loadmat(path)
 

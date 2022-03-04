@@ -20,10 +20,43 @@ To install the library, follow these steps.
 Python wrapper
 ==============
 
-To use the Python wrapper, add to your ``.bashrc`` file the following line: ::
-
-	export PYTHONPATH="${PYTHONPATH}:/path/to/model-learning"
-
-Then, you can import the python wrapper as ::
+The library provides a Python interface to deploy the trained model. The module can be loaded as: ::
 
 	import pyModelLearning
+	
+To install it, you can choose among the following options.	
+
+
+Option 1: Install the library by `setuptools <https://setuptools.readthedocs.io/>`_
+------------------------------------------------------------------------------------------
+
+From the main folder of this repository run: ::
+
+    $ pip install . --use-feature=in-tree-build
+
+
+Option 2: Add the library path to Python paths
+------------------------------------------------------------------------------------------
+
+Linux / macOS
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Add to your ``.bashrc``: ::
+
+    export PYTHONPATH="${PYTHONPATH}:/path/to/model-learning"
+
+Windows
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Add the path of ``model-learning`` to the ``PYTHONPATH`` environment variable.
+Alternatively, you can write the path of ``model-learning`` inside a ``pth`` file, as described `here <https://docs.python.org/3/using/windows.html#finding-modules>`_.
+
+Option 3: Add the library path within your python script
+------------------------------------------------------------------------------------------
+
+Put the following lines at the beginning of your Python script: ::
+
+    import sys
+    sys.path.append("/path/to/model-learning")
+    import pyModelLearning
+

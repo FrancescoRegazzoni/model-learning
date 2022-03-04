@@ -1,4 +1,4 @@
-function model_learn(optionsfile)
+function CurrentDirName = model_learn(optionsfile)
 
 % Learns a model form a collection of input-output pairs. All the options
 % are passed by an option file (see mor_datadriven/opt_example.ini for a
@@ -338,7 +338,6 @@ switch diffPen_type
         error(['Penalization type ' diffPen_type ' not recognized'])
 end
 
-
 %% Initial conditions initialization
 
 if ~problem.fixed_x0
@@ -589,6 +588,8 @@ if saveNetwork
     if saveHistory
         mkdir(CurrentDir,'networks');
     end
+else
+    CurrentDirName = '';
 end
 
 %% Printing out machine info
@@ -649,11 +650,59 @@ switch upper(algorithm)
         TestDerivativesNumerically(x0,@Evaluation);
     case 'TEST_F'
         modelclass_test_derivatives(modelclass,N,N_alpha,nU);
+    case 'TEST_TIMES'
+        num_tests = 10;
+
+        fprintf('== Execution times (s) ==\n')
+        t0 = tic();
+        for i = 1:num_tests
+            Func(x0);
+        end
+        t_func = toc(t0) / num_tests;
+        fprintf('loss:           %1.3e\n', t_func)
+
+        t0 = tic();
+        for i = 1:num_tests
+            Grad(x0);
+        end
+        t_grad = toc(t0) / num_tests;
+        fprintf('grad:           %1.3e\n', t_grad)
+
+        t0 = tic();
+        for i = 1:num_tests
+            FuncGrad(x0);
+        end
+        t_funcgrad = toc(t0) / num_tests;
+        fprintf('loss + grad:    %1.3e\n', t_funcgrad)
+
+        t0 = tic();
+        for i = 1:num_tests
+            LSFunc(x0);
+        end
+        t_res = toc(t0) / num_tests;
+        fprintf('roots:          %1.3e\n', t_res)
+
+        t0 = tic();
+        for i = 1:num_tests
+            LSGrad(x0);
+        end
+        t_jac = toc(t0) / num_tests;
+        fprintf('jac:            %1.3e\n', t_jac)
+
+        t0 = tic();
+        for i = 1:num_tests
+            LSFuncGrad(x0);
+        end
+        t_resjac = toc(t0) / num_tests;
+        fprintf('roots + jac:    %1.3e\n', t_resjac)
+
+        fprintf('=========================\n')
+
     otherwise
         error('Algorithm not recognized')
 end
 
-fprintf('finished!\n')
+fprintf('\nTerminated!\n')
 
 %% Functions definition
 
@@ -675,6 +724,14 @@ function [E,DE] = FuncGrad(x)
     else
         [E,DE] = Evaluation(x,1,1,0,0,0);
     end
+end
+
+function [F] = LSFunc(x)
+    F = Evaluation(x,0,0,1,0,0);
+end
+
+function [DF] = LSGrad(x)
+    DF = Evaluation(x,0,0,0,1,0);
 end
 
 function [F,DF] = LSFuncGrad(x)
@@ -1747,6 +1804,9 @@ function [varargout] = Evaluation(Params,compErr,compGrad,compRes,compJac,step_f
             if N_alpha > 0
                 save(fileNet,'Alpha','-append');
             end
+                        
+            ANNmod = read_model_fromfile(problem, CurrentDirName);
+            ANNmod.save_compact_file();
         end
         
 %         if mod(numIter,backupPeriod) == 0 && saveNetwork
@@ -1758,6 +1818,11 @@ function [varargout] = Evaluation(Params,compErr,compGrad,compRes,compJac,step_f
             diary(DiaryFile)
         end
     end
+end
+
+if saveNetwork
+    ANNmod_final = read_model_fromfile(problem, CurrentDirName);
+    ANNmod_final.save_compact_file();
 end
 
 end
