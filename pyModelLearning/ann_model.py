@@ -3,6 +3,8 @@ import numpy as np
 import configparser
 import os
 import json
+from os.path import exists
+
 
 class ANNmodel:
     def __init__(self, path, relative = True):
@@ -17,16 +19,17 @@ class ANNmodel:
             except:
                 script_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
-            # print(script_path)
+            if exists(script_path + '/options.ini'):
+                config = configparser.RawConfigParser()
+                config.read(script_path + '/options.ini')
+                datapath = config['paths']['datapath']
+            else:
+                datapath = '%/data'
 
-            config = configparser.RawConfigParser()
-            config.read(script_path + '/options.ini')
-            datapath = config['paths']['datapath']
             if datapath[0] == '%':
                 datapath = script_path + datapath[1:]
             path = datapath + '/' + path
 
-            # print(path)
 
         data = sio.loadmat(path)
 

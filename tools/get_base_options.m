@@ -7,7 +7,11 @@ function opt = get_base_options()
 
     cd(codepath);
 
-    opt.BaseDir = iniread('options.ini','paths','datapath','s');
+    if isfile('options.ini')
+        opt.BaseDir = iniread('options.ini','paths','datapath','s');
+    else
+        opt.BaseDir = '%/data';
+    end
     if opt.BaseDir(1) == '%'
         opt.BaseDir = [codepath opt.BaseDir(2:end)];
     end
